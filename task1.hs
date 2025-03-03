@@ -5,12 +5,7 @@
 
 module TaskOne (taskOne) where
 
--- Decision tree structure
-data DecisionTree
-  = EmptyTree
-  | Node Int Double DecisionTree DecisionTree
-  | Leaf String
-  deriving (Show)
+import Common (DecisionTree(EmptyTree, Node, Leaf), replaceComma, leadingSpaceCount)
 
 -- Execute the first task of the project
 taskOne :: String -> String -> IO ()
@@ -62,14 +57,3 @@ classifyLine (val : vals) (Node _ thr left right) =
   if read val <= thr then classifyLine vals left else classifyLine vals right
 classifyLine _ _ = []
 
--- Number of leading spaces in a string
-leadingSpaceCount :: String -> Int
-leadingSpaceCount [] = 0
-leadingSpaceCount (x : xs) =
-  if x == ' ' then 1 + leadingSpaceCount xs else 0
-
--- Replace commas with spaces in a string
-replaceComma :: String -> String
-replaceComma [] = []
-replaceComma (x : xs) =
-  if x == ',' then ' ' : replaceComma xs else x : replaceComma xs
