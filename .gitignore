@@ -1,3 +1,4 @@
 *.hi
 *.o
 flp-fun
+tests/
