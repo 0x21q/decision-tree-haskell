@@ -6,36 +6,47 @@
 module TaskTwo (taskTwo) where
 
 import Common (DecisionTree (EmptyTree, Leaf, Node), replaceComma)
-import Data.List (findIndex, maximumBy, minimumBy, sort, transpose)
+import Data.List (minimumBy, sort, transpose)
 import Data.Map qualified as Map
 import Data.Ord (comparing)
+
+type FeatCls = (Double, String)
 
 -- Execute the second task of the project
 taskTwo :: String -> IO ()
 taskTwo trainPath = do
   contentsTrain <- readFile trainPath
-  let allCls = map (last . words . replaceComma) $ lines contentsTrain
-  let allFeat = map (init . words . replaceComma) $ lines contentsTrain
-  let allFeatCls = transpose $ createTuples allFeat allCls
-  print $ trainTree allFeatCls [0 .. length (head allFeat) - 1]
+  let allFeatCls = parseTrainData $ lines contentsTrain
+  let thrs = sort $ map fst $ head allFeatCls
+  let thrCs = thrCandidates $ map fst $ head allFeatCls
+  let bestThr = getBestThr thrCs allFeatCls
+  print thrs
+  print thrCs
+  print bestThr
+  let thrs2 = sort $ map fst $ last allFeatCls
+  let thrCs2 = thrCandidates $ map fst $ last allFeatCls
+  let bestThr2 = getBestThr thrCs2 allFeatCls
+  print thrs2
+  print thrCs2
+  print bestThr2
+  let allSplits = getAllSplits allFeatCls
+  let bestSplit = minimumBy (comparing (\(g, _, _, _) -> g)) allSplits
+  print allSplits
+  print bestSplit
+  -- print $ trainTree allFeatCls [0 .. length (head allFeat) - 1]
 
--- let feats0 = getFeaturesOnIdx 0 allFeat
--- let clsFeats0 = zip feats0 allCls
--- print $ weightedGini 12 16 0.486 0.375
---
+parseTrainData :: [String] -> [[FeatCls]]
+parseTrainData lines = transpose $ createTuples allFeat allCls
+  where 
+    allCls = map (last . words . replaceComma) lines
+    allFeat = map (init . words . replaceComma) lines
 
-createTuples :: [[String]] -> [String] -> [[(Double, String)]]
-createTuples [] [] = []
+createTuples :: [[String]] -> [String] -> [[FeatCls]]
+createTuples [] _ = []
+createTuples _ [] = []
 createTuples (f : fs) (c : cs) = map (\x -> (read x, c)) f : createTuples fs cs
 
--- Return a threshold (avg) from a list of features
-thrAvg :: [(Double, String)] -> Double
-thrAvg [] = 0
-thrAvg xxs = (head feats + last feats) / 2
-  where
-    feats = sort $ map fst xxs
-
-trainTree :: [[(Double, String)]] -> [Int] -> DecisionTree
+trainTree :: [[FeatCls]] -> [Int] -> DecisionTree
 trainTree _ [] = EmptyTree
 trainTree allFeatCls [] = Leaf ((snd . head . head) allFeatCls)
 trainTree allFeatCls indices = Node bestIdx bestThr left right
@@ -56,17 +67,30 @@ trainTree allFeatCls indices = Node bestIdx bestThr left right
 --    right = EmptyTree
 -- trainTree _ _ = EmptyTree
 
-getAllSplits :: [[(Double, String)]] -> [(Double, Double, [(Double, String)], [(Double, String)])]
+getAllSplits :: [[FeatCls]] -> [(Double, Double, [FeatCls], [FeatCls])]
 getAllSplits [] = []
-getAllSplits allFeatCls = (giniOfSplit, thr, splitA, splitB) : getAllSplits (tail allFeatCls)
+getAllSplits allFeatCls =
+  (giniOfSplit, bestThr, splitA, splitB) : getAllSplits (tail allFeatCls)
   where
-    thr = thrAvg $ head allFeatCls
+    thrs = thrCandidates $ (sort . map fst . head) allFeatCls
+    bestThr = getBestThr thrs allFeatCls
     features = head allFeatCls
-    splitA = foldl (\ac f -> if fst f <= thr then f : ac else ac) [] features
-    splitB = foldl (\ac f -> if fst f > thr then f : ac else ac) [] features
+    splitA = filter (\f -> fst f <= bestThr) features -- alternatively as fold
+    splitB = filter (\f -> fst f > bestThr) features
     giniOfSplit = weightedGini splitA splitB
 
-weightedGini :: [(Double, String)] -> [(Double, String)] -> Double
+getBestThr :: [Double] -> [[FeatCls]] -> Double
+getBestThr [] _ = 1.0
+getBestThr xxs allFeatCls 
+    = fst $ minimumBy (comparing snd) $ map (\t -> (t, giniOfThr t)) xxs
+  where
+    features = head allFeatCls
+    giniOfThr thr = weightedGini splitA splitB
+      where 
+        splitA = filter (\f -> fst f <= thr) features
+        splitB = filter (\f -> fst f > thr) features
+
+weightedGini :: [FeatCls] -> [FeatCls] -> Double
 weightedGini fA fB = (cntA / cntN) * gA + (cntB / cntN) * gB
   where
     cntA = fromIntegral $ length fA
@@ -93,15 +117,14 @@ giniFromCls cls =
     n = fromIntegral $ sum freqMap
     freqMap = classFreq cls Map.empty
 
--- thrCandidates :: [Double] -> [Double]
--- thrCandidates [] = []
--- thrCandidates [_] = []
--- thrCandidates (x : y : ys) = ((x + y) / 2) : thrCandidates (y : ys)
---
--- thrAltCandidates :: [Double] -> [Double]
--- thrAltCandidates [] = []
--- thrAltCandidates xxs = [low, low + 0.1 .. high]
+thrCandidates :: [Double] -> [Double]
+thrCandidates [] = []
+thrCandidates [_] = []
+thrCandidates (x : y : ys) = ((x + y) / 2) : thrCandidates (y : ys)
+
+-- Return a threshold (avg) from a list of features
+--thrAvg :: [(Double, String)] -> Double
+--thrAvg [] = 0
+--thrAvg xxs = (head feats + last feats) / 2
 --  where
---    low = head xxs
---    high = last xxs
---
+--    feats = sort $ map fst xxs
