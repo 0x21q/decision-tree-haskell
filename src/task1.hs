@@ -5,7 +5,7 @@
 
 module TaskOne (taskOne) where
 
-import Common (DecisionTree(EmptyTree, Node, Leaf), replaceComma, leadingSpaceCount)
+import Common (DecisionTree (EmptyTree, Leaf, Node), leadingSpaceCount, replaceComma)
 
 -- Execute the first task of the project
 taskOne :: String -> String -> IO ()
@@ -56,4 +56,3 @@ classifyLine _ (Leaf cls) = [cls]
 classifyLine (val : vals) (Node _ thr left right) =
   if read val <= thr then classifyLine vals left else classifyLine vals right
 classifyLine _ _ = []
-
