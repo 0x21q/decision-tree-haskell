@@ -8,9 +8,21 @@ module Common where
 -- Decision tree structure
 data DecisionTree
   = EmptyTree
-  | Node Int Double DecisionTree DecisionTree
   | Leaf String
-  deriving (Show)
+  | Node Int Double DecisionTree DecisionTree
+
+-- Show implementation for DecisionTree utilizing
+-- a helper function printTree to allow recursion
+instance Show DecisionTree where
+    show = printTree 0
+
+printTree :: Int -> DecisionTree -> String
+printTree _ EmptyTree = []
+printTree c (Leaf cls) = replicate c ' ' ++ "Leaf: " ++ cls
+printTree c (Node i t l r) = 
+    replicate c ' ' ++ "Node: " ++ show i ++ ", " ++ show t ++
+    "\n" ++ printTree (c+2) l ++ "\n" ++ printTree (c+2) r 
+
 
 -- Number of leading spaces in a string
 leadingSpaceCount :: String -> Int
