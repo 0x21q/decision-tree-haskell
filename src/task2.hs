@@ -41,12 +41,12 @@ createTuples (f : fs) (c : cs) acc =
   map (\x -> (read x, c, acc)) f : createTuples fs cs (acc + 1)
 
 -- Main functionality for the training and building of
--- decision tree, takes as input a list of all feature 
+-- decision tree, takes as input a list of all feature
 -- value class pairs and returns a built decision tree
 trainTree :: [[FeatCls]] -> DecisionTree
 trainTree [] = EmptyTree
 trainTree allFeatCls
-  | currentGini <= 0.01 = Leaf $ mostFrequentCls $ concat allFeatCls
+  | currentGini < 0.01 = Leaf $ mostFrequentCls $ concat allFeatCls
   | otherwise = Node idx bestThr left right
   where
     currentGini = giniFromCls . map snd3 . concat $ allFeatCls
@@ -66,11 +66,11 @@ trainTree allFeatCls
 -- Get splits of all features which are already splitted with
 -- the best threholds for given feature from list of all features
 getAllSplits :: [[FeatCls]] -> Int -> [Split]
-getAllSplits [] _= []
+getAllSplits [] _ = []
 getAllSplits xxs idx =
   (spGini, bestThr, idx, spA, spB) : getAllSplits (tail xxs) (idx + 1)
   where
-    thrs = fixFP . thrCandidates . sort . map fst3 . head $ xxs
+    thrs = thrCandidates . sort . map fst3 . head $ xxs
     bestThr = getBestThr thrs xxs
     spA = filter (\f -> fst3 f <= bestThr) $ head xxs
     spB = filter (\f -> fst3 f > bestThr) $ head xxs
@@ -79,8 +79,8 @@ getAllSplits xxs idx =
 -- Update split with a corresponding entry values from other features
 -- (the input data that are in the same line are added into the split)
 updateSplit :: [[FeatCls]] -> [Int] -> [[FeatCls]]
-updateSplit allFeatCls indexes = 
-  map (filter (\x -> thd3 x `elem` indexes)) allFeatCls
+updateSplit allFeatCls identifiers =
+  map (filter (\x -> thd3 x `elem` identifiers)) allFeatCls
 
 -- Get best threshold from list of threshold candidates
 -- based on the gini index of each split
@@ -142,23 +142,14 @@ mostFrequentCls xxs =
     freqMap = classFreq (map snd3 xxs) Map.empty
 
 -- Helper functions for extracting values out of n-sized tuples
-fst3 :: (a,b,c) -> a
+fst3 :: (a, b, c) -> a
 fst3 (x, _, _) = x
 
-snd3 :: (a,b,c) -> b
+snd3 :: (a, b, c) -> b
 snd3 (_, x, _) = x
 
-thd3 :: (a,b,c) -> c
+thd3 :: (a, b, c) -> c
 thd3 (_, _, x) = x
 
-fst5 :: (a,b,c,d,e) -> a
+fst5 :: (a, b, c, d, e) -> a
 fst5 (x, _, _, _, _) = x
-
--- Fix the floating point errors of list of doubles
--- for more clean printing
-fixFP :: [Double] -> [Double]
-fixFP [] = []
-fixFP (x : xs) =
-  if length (show x) > 4
-    then (read . take 4 . show) x : fixFP xs
-    else x : fixFP xs
