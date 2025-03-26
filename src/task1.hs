@@ -5,7 +5,11 @@
 
 module TaskOne (taskOne) where
 
-import Common (DecisionTree (EmptyTree, Leaf, Node), leadingSpaceCount, replaceComma)
+import Common
+  ( DecisionTree (EmptyTree, Leaf, Node),
+    leadingSpaceCount,
+    replaceComma,
+  )
 
 -- Execute the first task of the project
 -- @param String path to the tree file

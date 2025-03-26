@@ -7,7 +7,7 @@ module TaskTwo (taskTwo) where
 
 import Common (DecisionTree (EmptyTree, Leaf, Node), replaceComma)
 import Data.List (maximumBy, minimumBy, sort, transpose)
-import Data.Map qualified as Map
+import qualified Data.Map as Map
 import Data.Ord (comparing)
 
 -- Type for a triple where: FeatCls = (value, class, index)
@@ -144,10 +144,10 @@ classFreq (cls : other) m = classFreq other updated
 -- @return Double gini index of classes
 giniFromCls :: [String] -> Double
 giniFromCls cls =
-  1 - sum (Map.map (\x -> (fromIntegral x / n) ** 2) freqMap)
+  1 - sum (map (\x -> (fromIntegral x / n) ** 2) freqMapElems)
   where
-    n = fromIntegral $ sum freqMap
-    freqMap = classFreq cls Map.empty
+    freqMapElems = Map.elems $ classFreq cls Map.empty
+    n = fromIntegral $ sum freqMapElems
 
 -- Create threshold candidates using averages of neighbors
 -- from a list of feature values (which needs to be sorted)
