@@ -16,4 +16,4 @@ run: $(TARGET)
 	./$(TARGET)
 
 archive: clean
-	zip -r xkrato67.zip Makefile README.md ./src
+	zip -r xkrato67.zip Makefile README.md VERSION ./src
