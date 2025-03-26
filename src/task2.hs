@@ -10,39 +10,47 @@ import Data.List (maximumBy, minimumBy, sort, transpose)
 import Data.Map qualified as Map
 import Data.Ord (comparing)
 
--- Type for a triple which contain (value, class, index)
+-- Type for a triple where: FeatCls = (value, class, index)
 type FeatCls = (Double, String, Int)
 
--- Type for quadruple which contain information about split
--- (gini index, best threshold, index, split group A, split group B)
+-- Type for quadruple which contain information about split where:
+-- Split = (gini index, best threshold, index, left split, right split)
 type Split = (Double, Double, Int, [FeatCls], [FeatCls])
 
 -- Execute the second task of the project
+-- @param String path to the train file
+-- @return IO () print trained tree
 taskTwo :: String -> IO ()
 taskTwo trainPath = do
   input <- readFile trainPath
   let allFeatCls = parseTrainData $ lines input
   print $ trainTree allFeatCls
 
--- Parse input training data from and return a list of
--- class pairs for each feature
+-- Parse input training data into predefined types
+-- @param [String] list of input lines
+-- @return [[FeatCls]] list of FeatCls triples for each feature
 parseTrainData :: [String] -> [[FeatCls]]
-parseTrainData inputLines = transpose $ createTuples allFeat allCls 0
+parseTrainData inputLines = transpose $ createTriples allFeat allCls 0
   where
     allCls = map (last . words . replaceComma) inputLines
     allFeat = map (init . words . replaceComma) inputLines
 
--- Create feature class pairs (tuples) from a list of
+-- Create feature class triples from a list of
 -- features and classes parsed from the input
-createTuples :: [[String]] -> [String] -> Int -> [[FeatCls]]
-createTuples [] _ _ = []
-createTuples _ [] _ = []
-createTuples (f : fs) (c : cs) acc =
-  map (\x -> (read x, c, acc)) f : createTuples fs cs (acc + 1)
+-- @param [[String]] list of feature values for each feature
+-- @param [String] list of all classes
+-- @param Int internal index for given triple (used in updateSplit)
+-- @return [[FeatCls]] list of FeatCls triples for each feature
+createTriples :: [[String]] -> [String] -> Int -> [[FeatCls]]
+createTriples [] _ _ = []
+createTriples _ [] _ = []
+createTriples (f : fs) (c : cs) acc =
+  map (\x -> (read x, c, acc)) f : createTriples fs cs (acc + 1)
 
 -- Main functionality for the training and building of
--- decision tree, takes as input a list of all feature
--- value class pairs and returns a built decision tree
+-- decision tree
+-- @param [[FeatCls]] list of FeatCls triples for each feature
+-- @return DecisionTree trained decision tree
 trainTree :: [[FeatCls]] -> DecisionTree
 trainTree [] = EmptyTree
 trainTree allFeatCls
@@ -51,20 +59,23 @@ trainTree allFeatCls
   where
     currentGini = giniFromCls . map snd3 . concat $ allFeatCls
     allSplits = getAllSplits allFeatCls 0
-    (_, bestThr, idx, spA, spB) = minimumBy (comparing fst5) allSplits
-    fullSpA = updateSplit allFeatCls $ map thd3 spA
-    fullSpB = updateSplit allFeatCls $ map thd3 spB
+    (_, bestThr, idx, spL, spR) = minimumBy (comparing fst5) allSplits
+    fullSpL = updateSplit allFeatCls $ map thd3 spL
+    fullSpR = updateSplit allFeatCls $ map thd3 spR
     left =
-      if null fullSpA
+      if null fullSpL
         then Leaf $ mostFrequentCls $ head allFeatCls
-        else trainTree fullSpA
+        else trainTree fullSpL
     right =
-      if null fullSpB
+      if null fullSpR
         then Leaf $ mostFrequentCls $ head allFeatCls
-        else trainTree fullSpB
+        else trainTree fullSpR
 
 -- Get splits of all features which are already splitted with
--- the best threholds for given feature from list of all features
+-- the best threhold for given feature from list of all features
+-- @param [[FeatCls]] list of FeatCls triples for each feature
+-- @param Int initial index of a split
+-- @return [Split] list of all splits splitted by their best threshold
 getAllSplits :: [[FeatCls]] -> Int -> [Split]
 getAllSplits [] _ = []
 getAllSplits xxs idx =
@@ -78,12 +89,18 @@ getAllSplits xxs idx =
 
 -- Update split with a corresponding entry values from other features
 -- (the input data that are in the same line are added into the split)
+-- @param [[FeatCls]] list of FeatCls triples for each feature
+-- @param [Int] list of indexes present in a split of one feature
+-- @return [[FeatCls]] updated list of FeatCls triples which share same id
 updateSplit :: [[FeatCls]] -> [Int] -> [[FeatCls]]
 updateSplit allFeatCls identifiers =
   map (filter (\x -> thd3 x `elem` identifiers)) allFeatCls
 
 -- Get best threshold from list of threshold candidates
 -- based on the gini index of each split
+-- @param [Double] list of threshold candidates
+-- @param [[FeatCls]] list of FeatCls triples for each feature
+-- @param Double best threshold for given split
 getBestThr :: [Double] -> [[FeatCls]] -> Double
 getBestThr [] _ = 1.0
 getBestThr xxs allFeatCls =
@@ -96,6 +113,9 @@ getBestThr xxs allFeatCls =
         splitB = filter (\f -> fst3 f > thr) features
 
 -- Calculate weighted gini index of two splitted groups
+-- @param [FeatCls] left split (A)
+-- @param [FeatCls] right split (B)
+-- @return Double weighted gini index of two splitted groups
 weightedGini :: [FeatCls] -> [FeatCls] -> Double
 weightedGini fA fB = (cntA / cntN) * gA + (cntB / cntN) * gB
   where
@@ -107,6 +127,9 @@ weightedGini fA fB = (cntA / cntN) * gA + (cntB / cntN) * gB
 
 -- Based on the list of classes return a map which contains
 -- frequencies for each unique class
+-- @param [String] list of classes
+-- @param Map String Int initial map
+-- @return Map String Int map filled with frequencies
 classFreq :: [String] -> Map.Map String Int -> Map.Map String Int
 classFreq [] m = m
 classFreq (cls : other) m = classFreq other updated
@@ -117,6 +140,8 @@ classFreq (cls : other) m = classFreq other updated
         else Map.insert cls 1 m
 
 -- Calculate gini index from class list
+-- @param [String] list of classes
+-- @return Double gini index of classes
 giniFromCls :: [String] -> Double
 giniFromCls cls =
   1 - sum (Map.map (\x -> (fromIntegral x / n) ** 2) freqMap)
@@ -126,6 +151,8 @@ giniFromCls cls =
 
 -- Create threshold candidates using averages of neighbors
 -- from a list of feature values (which needs to be sorted)
+-- @param [Double] list of feature values
+-- @return [Double] list of threshold candidates
 thrCandidates :: [Double] -> [Double]
 thrCandidates [] = []
 thrCandidates [_] = []
@@ -134,6 +161,8 @@ thrCandidates (x : y : ys) = ((x + y) / 2) : thrCandidates (y : ys)
 -- Get the most frequent class from the given split group,
 -- this function is generally implemented so that it works
 -- even if the base recursion gini value is greater than 0
+-- @param [FeatCls] list of FeatCls triples
+-- @return String most frequent class
 mostFrequentCls :: [FeatCls] -> String
 mostFrequentCls [] = []
 mostFrequentCls xxs =
